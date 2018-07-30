@@ -11,17 +11,18 @@ import (
 	bq "google.golang.org/api/bigquery/v2"
 	"encoding/hex"
 	"crypto/rand"
-	"net/http"
-)
+	)
 
 var (
 	projectID   = "fresh-8-testing"
 	dataSetName = "lab_lee"
-	tableName = "array_test_inferred_1532701620" // fmt.Sprintf("array_test_inferred_%v", time.Now().Unix())
+	tableName = "array_test_inferred_1532985867"//fmt.Sprintf("array_test_inferred_%v", time.Now().Unix())
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.LUTC | log.Lshortfile)
+
+	//newHotness()
 
 	oldAndBusted()
 }
@@ -37,33 +38,25 @@ func oldAndBusted() {
 		log.Fatalf("%v", err)
 	}
 
-	// passes as expected
+	// passes, expected
 	oldPutItem(service, []Item{{AnArray: []NumRecord{{Number: 42}}}})
 	fmt.Println("42 passed")
 
-	// fails unexpectedly
+	// passes, expected
 	oldPutItem(service, []Item{{AnArray: make(NumRecords,0)}})
 	fmt.Println("empty passed")
 
-	// huh does not fail...
-	oldPutItem(service, []Item{{}})
+	// fail, expected
+	oldPutItem(service, []Item{{AnArray: nil}})
 	fmt.Println("nil passed")
 }
 
 func oldPutItem(service *bq.Service, items []Item) {
 	rows := make([]*bq.TableDataInsertAllRequestRows, 0, len(items))
 	for _, item := range items {
-
-
-		iid, err := uuid()
-		if err != nil {
-			log.Fatalf("%v", err)
-		}
-
 		rows = append(rows, &bq.TableDataInsertAllRequestRows{
 			Json: map[string]bq.JsonValue{
-				"doc":      item,
-				"insertID": iid,
+				"an_array": item.AnArray,
 			},
 		})
 	}
@@ -80,8 +73,14 @@ func oldPutItem(service *bq.Service, items []Item) {
 		log.Fatalf("%v", err)
 	}
 
-	if resp.HTTPStatusCode != http.StatusOK {
-		log.Println(resp.HTTPStatusCode)
+	for _, insErr := range resp.InsertErrors {
+		for _, err := range insErr.Errors {
+			log.Printf("%v", err)
+		}
+	}
+
+	if len(resp.InsertErrors) > 0 {
+		log.Fatalf("want len(resp.InsertErrors) = 0, got %v", len(resp.InsertErrors))
 	}
 }
 
